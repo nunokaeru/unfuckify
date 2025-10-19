@@ -13,6 +13,6 @@ list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(Catch)
 
 add_executable(tests test_executable.cpp)
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain ProjectName)
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain ${LIBCLANG_LIBRARIES} libclang libunfuckify)
 
 catch_discover_tests(tests)
