@@ -1,4 +1,12 @@
-cmake_minimum_required(VERSION 3.13.4)
+
+cmake_minimum_required(VERSION 3.28)
+
+set(target unfuckify)
+set(CMAKE_CXX_STANDARD 23)
+set(CXX_STANDARD C++23)
+set(CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 option(ENABLE_SANITIZERS "Enable runtime sanitizing (for development)")
 if (ENABLE_SANITIZERS)
@@ -7,13 +15,21 @@ if (ENABLE_SANITIZERS)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
 endif()
 
-set(CMAKE_CXX_STANDARD 20)
-set(CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+project(${target} VERSION 1.0 LANGUAGES C CXX)
 
-project(unfuckify)
 find_package(Clang REQUIRED)
 include_directories(${CLANG_INCLUDE_DIRS})
-add_executable(unfuckify main.cpp test.cpp fuckery1.cpp fuckery2.cpp)
-target_link_libraries(unfuckify ${LIBCLANG_LIBRARIES} libclang)
-install(TARGETS unfuckify DESTINATION bin)
+add_executable(${target} src/main.cpp)
+
+file(GLOB sources "src/*.cpp")
+file(GLOB includes "src/*.h")
+add_library(libunfuckify STATIC ${includes} ${sources})
+target_link_libraries(${target} PRIVATE ${LIBCLANG_LIBRARIES} libclang libunfuckify)
+
+
+include(CTest) # calls enable_testing()
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
+
+install(TARGETS ${target})

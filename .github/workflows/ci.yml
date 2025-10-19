@@ -1,0 +1,28 @@
+name: ci
+
+on:
+  push:
+    branches: ["master", "main"]
+  pull_request:
+    branches: ["master", "main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update apt and install dependencies
+        run: |
+          sudo apt update
+          sudo apt install cmake ninja-build gcc g++
+
+      - name: Configure CMake
+        run: cmake --preset linux
+
+      - name: Build
+        run: cmake --build --preset linux
+
+      - name: Run tests
+        run: ctest --preset linux

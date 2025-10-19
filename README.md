@@ -83,3 +83,33 @@ TODO
 
  - Handle structured binding (the auto there hides std::pairs, or sometimes QPairs).
  - Chop off the 'const' in std::functions.
+
+
+
+# unfuckify
+
+Removes auto from your codebase.
+
+## Requirements
+
+- [Cmake](https://cmake.org/download/) higher than `v3.28`;
+- [Ninja](https://ninja-build.org/);
+- [LLVM](https://llvm.org/);
+- [Clang](https://clang.llvm.org/);
+
+### Ubuntu 24.04:
+
+```
+sudo apt update
+sudo apt install cmake ninja-build gcc g++ clang-20 llvm-20 libclang-20-dev clang-tools-20 libedit-dev zlib1g-dev libzstd-dev libcurl4-openssl-dev
+```
+
+## Building and running the project
+
+Three presets are provided, one for windows `windows-clang` (doesn't work) and two for `linux` and `linux-clang`.
+
+- List the presets available with `cmake --list-presets`;
+- Run the project configure step with `cmake --preset <preset>`;
+- Build the project `cmake --build --preset <preset>`;
+- Run the main executable `./build/<preset>/bin/unfuckify` (Add the file extension `.exe` on Windows).
+- Testing `ctest --preset <preset>`
