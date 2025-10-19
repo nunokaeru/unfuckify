@@ -10,6 +10,8 @@
 #include <cstring>
 #include <cassert>
 
+#include "format.h"
+
 extern "C" {
 #include <unistd.h>
 #include <clang-c/Index.h>
@@ -32,23 +34,27 @@ std::string getString(const CXString &str)
 {
     const char *cstr = clang_getCString(str);
     std::string ret;
-    if (cstr) ret = std::string(cstr);
-    else ret = "(nullptr)";
+    if (cstr)
+        ret = std::string(cstr);
+    else
+        ret = "(nullptr)";
     clang_disposeString(str);
     return ret;
 }
 
 namespace std {
-template<>
-struct hash<CXSourceLocation> {
-    size_t operator()(CXSourceLocation const& any) const {
+template <>
+struct hash<CXSourceLocation>
+{
+    size_t operator()(CXSourceLocation const &any) const
+    {
         unsigned line, col;
         clang_getSpellingLocation(any, nullptr, &line, &col, nullptr);
         // very inefficient idk
         return (line ^ col);
     }
 };
-};
+}; // namespace std
 
 static bool operator==(const CXSourceLocation &a, const CXSourceLocation &b)
 {
@@ -78,8 +84,10 @@ static void dumpNode(const CXCursor &cursor)
     std::cerr << " > Ends at " << clang_getFileName(fileEnd) << ":" << lineEnd << ":" << colEnd << std::endl;
 }
 
-struct Unfuckifier {
-    struct Replacement {
+struct Unfuckifier
+{
+    struct Replacement
+    {
         unsigned start, end;
         std::string string;
     };
@@ -116,6 +124,7 @@ struct Unfuckifier {
 
         return true;
     }
+
     std::string regenerateStupidShit(CXCursor cursor)
     {
         std::string ret = getString(clang_getCursorPrettyPrinted(cursor, nullptr));
@@ -145,7 +154,8 @@ struct Unfuckifier {
         CXType type = clang_getCursorType(cursor);
         CXType pointerType = clang_getPointeeType(type);
 
-        if (verbose) dumpNode(cursor);
+        if (verbose)
+            dumpNode(cursor);
 
         if (dumpNodes) {
             std::cout << " > type " << clang_getTypeSpelling(type) << std::endl;
@@ -162,7 +172,8 @@ struct Unfuckifier {
             clang_getSpellingLocation(start, &fileStart, &lineStart, &colStart, nullptr);
             clang_getSpellingLocation(end, &fileEnd, &lineEnd, &colEnd, nullptr);
 
-            std::cerr << " > Starts at " << clang_getFileName(fileStart) << ":" << lineStart << ":" << colStart << std::endl;
+            std::cerr << " > Starts at " << clang_getFileName(fileStart) << ":" << lineStart << ":" << colStart
+                      << std::endl;
             std::cerr << " > Ends at " << clang_getFileName(fileEnd) << ":" << lineEnd << ":" << colEnd << std::endl;
         }
 
@@ -170,7 +181,8 @@ struct Unfuckifier {
         // gives us 'foo *' instead of just 'foo', but the token extent covers
         // only 'auto' So resolve the pointer/reference type, if available, and
         // just use that.
-        while (type.kind == CXType_Pointer || type.kind == CXType_RValueReference || type.kind == CXType_LValueReference) {
+        while (type.kind == CXType_Pointer || type.kind == CXType_RValueReference
+               || type.kind == CXType_LValueReference) {
             CXType pointerType = clang_getPointeeType(type);
             if (pointerType.kind != CXType_Invalid) {
                 type = pointerType;
@@ -211,8 +223,10 @@ struct Unfuckifier {
                 clang_getSpellingLocation(start, &fileStart, &lineStart, &colStart, nullptr);
                 clang_getSpellingLocation(end, &fileEnd, &lineEnd, &colEnd, nullptr);
 
-                std::cerr << " > Starts at " << clang_getFileName(fileStart) << ":" << lineStart << ":" << colStart << std::endl;
-                std::cerr << " > Ends at " << clang_getFileName(fileEnd) << ":" << lineEnd << ":" << colEnd << std::endl;
+                std::cerr << " > Starts at " << clang_getFileName(fileStart) << ":" << lineStart << ":" << colStart
+                          << std::endl;
+                std::cerr << " > Ends at " << clang_getFileName(fileEnd) << ":" << lineEnd << ":" << colEnd
+                          << std::endl;
             } else if (constStart != 0) {
                 std::cout << "unexpected position of const modifier: " << constStart << std::endl;
                 return {};
@@ -229,8 +243,10 @@ struct Unfuckifier {
                 CXFile fileStart, fileEnd;
                 clang_getSpellingLocation(start, &fileStart, &lineStart, &colStart, nullptr);
                 clang_getSpellingLocation(end, &fileEnd, &lineEnd, &colEnd, nullptr);
-                std::cerr << " > Starts at " << clang_getFileName(fileStart) << ":" << lineStart << ":" << colStart << std::endl;
-                std::cerr << " > Ends at " << clang_getFileName(fileEnd) << ":" << lineEnd << ":" << colEnd << std::endl;
+                std::cerr << " > Starts at " << clang_getFileName(fileStart) << ":" << lineStart << ":" << colStart
+                          << std::endl;
+                std::cerr << " > Ends at " << clang_getFileName(fileEnd) << ":" << lineEnd << ":" << colEnd
+                          << std::endl;
                 replacement.string = "";
                 return replacement;
             }
@@ -268,17 +284,13 @@ struct Unfuckifier {
             braceSpace = replacement.string.find(" >");
         }
 
-
         return replacement;
     }
 
     bool parseCompilationDatabase(const std::string &compilePath)
     {
         CXCompilationDatabase_Error compilationDatabaseError;
-        compilationDatabase = clang_CompilationDatabase_fromDirectory(
-                    compilePath.c_str(),
-                    &compilationDatabaseError
-                );
+        compilationDatabase = clang_CompilationDatabase_fromDirectory(compilePath.c_str(), &compilationDatabaseError);
 
         if (compilationDatabaseError != CXCompilationDatabase_NoError) {
             std::cerr << "Failed to load " << compilePath << "(err " << compilationDatabaseError << ")" << std::endl;
@@ -297,21 +309,25 @@ struct Unfuckifier {
             std::cerr << "No compile commands found" << std::endl;
             return {};
         }
-        for (size_t i=0; i<numCompileCommands; i++) {
+        for (size_t i = 0; i < numCompileCommands; i++) {
             CXCompileCommand compileCommand = clang_CompileCommands_getCommand(compileCommands, i);
             std::string filename = getString(clang_CompileCommand_getFilename(compileCommand));
 
             if (skipBuildDir) {
                 std::string buildDir = getString(clang_CompileCommand_getDirectory(compileCommand));
                 if (filename.find(buildDir) == 0) {
-                    if (verbose) std::cout << "Skipping generated " << filename << std::endl;
-                    else std::cout << "Skipping generated " << std::filesystem::path(filename).filename() << std::endl;
+                    if (verbose)
+                        std::cout << "Skipping generated " << filename << std::endl;
+                    else
+                        std::cout << "Skipping generated " << std::filesystem::path(filename).filename() << std::endl;
                     continue;
                 }
             }
             if (!std::filesystem::exists(filename)) {
-                if (verbose) std::cout << "Skipping nonexistent " << filename << std::endl;
-                else std::cout << "Skipping nonexistent " << std::filesystem::path(filename).filename() << std::endl;
+                if (verbose)
+                    std::cout << "Skipping nonexistent " << filename << std::endl;
+                else
+                    std::cout << "Skipping nonexistent " << std::filesystem::path(filename).filename() << std::endl;
                 continue;
             }
             files.push_back(filename);
@@ -320,7 +336,8 @@ struct Unfuckifier {
         return files;
     }
 
-    ~Unfuckifier() {
+    ~Unfuckifier()
+    {
         if (index) {
             clang_disposeIndex(index);
         }
@@ -332,7 +349,8 @@ struct Unfuckifier {
 
     void grokFile(const std::string &sourceFile, CXSourceRange fileExtent)
     {
-        if (verbose) std::cout << "Checking " << sourceFile << std::endl;
+        if (verbose)
+            std::cout << "Checking " << sourceFile << std::endl;
 
         // We can't traverse the AST, because auto's are already resolved
         unsigned numTokens;
@@ -401,7 +419,8 @@ struct Unfuckifier {
                 }
 
                 Replacement replacement;
-                autoLambdas[clang_getCursorLocation(cursor)] = clang_getCursorLocation(clang_getCursorSemanticParent(cursor));
+                autoLambdas[clang_getCursorLocation(cursor)] =
+                    clang_getCursorLocation(clang_getCursorSemanticParent(cursor));
             }
 
             // Handle auto&& crap
@@ -435,7 +454,7 @@ struct Unfuckifier {
             prevWasAuto = false;
 
             if (clang_getTokenKind(tokens[i]) != CXToken_Keyword) {
-                //continue;
+                // continue;
             }
 
             if (tokenString == "auto") {
@@ -465,15 +484,16 @@ struct Unfuckifier {
             // For some reason we have to keep checking the parents, doesn't seem like stuff is resolved otherwise
             CXCursor parent = clang_getCursorSemanticParent(cursor);
             CXType parentType = clang_getCursorType(parent);
-            if (parentType.kind == CXType_FunctionProto) {// should we check CXType_FunctionNoProto?
+            if (parentType.kind == CXType_FunctionProto) { // should we check CXType_FunctionNoProto?
                 if (clang_getResultType(parentType).kind != CXType_Auto) {
                     continue;
                 }
 
-                std::unordered_map<CXSourceLocation, CXSourceLocation>::const_iterator firstIt = autoLambdas.find(clang_getCursorLocation(parent));
+                std::unordered_map<CXSourceLocation, CXSourceLocation>::const_iterator firstIt =
+                    autoLambdas.find(clang_getCursorLocation(parent));
                 if (firstIt == autoLambdas.end()) {
-                    //std::cerr << "Failed to find lambda auto location" << std::endl;
-                    //dumpCursor(parent);
+                    // std::cerr << "Failed to find lambda auto location" << std::endl;
+                    // dumpCursor(parent);
                     continue;
                 }
 
@@ -490,8 +510,10 @@ struct Unfuckifier {
                     replacement.string = replacement.string.substr(0, replacement.string.size() - strlen(" const"));
                 }
                 replacement.string = "std::function<" + replacement.string + ">";
-                if (verbose) std::cout << "Found lambda: " << replacement.start << "-" << replacement.end << std::endl;
-                if (verbose) std::cout << replacement.string << std::endl;
+                if (verbose)
+                    std::cout << "Found lambda: " << replacement.start << "-" << replacement.end << std::endl;
+                if (verbose)
+                    std::cout << replacement.string << std::endl;
                 replacements.push_back(replacement);
             }
         }
@@ -502,13 +524,15 @@ struct Unfuckifier {
             return;
         }
 
-
         fixFile(sourceFile, replacements);
     }
 
-    static void inclusionVisitor(CXFile included_file, CXSourceLocation* inclusion_stack, unsigned include_len, CXClientData client_data)
+    static void inclusionVisitor(CXFile included_file,
+                                 CXSourceLocation *inclusion_stack,
+                                 unsigned include_len,
+                                 CXClientData client_data)
     {
-        Unfuckifier *that = reinterpret_cast<Unfuckifier*>(client_data);
+        Unfuckifier *that = reinterpret_cast<Unfuckifier *>(client_data);
         if (include_len == 0) {
             return;
         }
@@ -521,9 +545,11 @@ struct Unfuckifier {
 
         // stl is utter crap, as usual, because nice APIs would be too much
         std::error_code fsError;
-        std::string filePath = std::filesystem::canonical(getString(clang_getFileName(included_file)), fsError).string();
+        std::string filePath =
+            std::filesystem::canonical(getString(clang_getFileName(included_file)), fsError).string();
         if (fsError) {
-            std::cerr << "Failed to find proper name for " << getString(clang_getFileName(included_file)) << ": " << fsError.message() << std::endl;
+            std::cerr << "Failed to find proper name for " << getString(clang_getFileName(included_file)) << ": "
+                      << fsError.message() << std::endl;
             return;
         }
 
@@ -544,7 +570,8 @@ struct Unfuckifier {
         }
 
         if (!memmem(fileContents, fileSize, "auto", strlen("auto"))) {
-            if (that->verbose) std::cout << filePath << " doesn't contain auto" << std::endl;
+            if (that->verbose)
+                std::cout << filePath << " doesn't contain auto" << std::endl;
             return;
         }
 
@@ -562,14 +589,14 @@ struct Unfuckifier {
         }
 
         std::cout << "Processing ";
-        if (verbose) std::cout << sourceFile;
-        else std::cout << filename;
+        if (verbose)
+            std::cout << sourceFile;
+        else
+            std::cout << filename;
         std::cout << "... " << std::flush;
 
-        CXCompileCommands compileCommands = clang_CompilationDatabase_getCompileCommands(
-                                                compilationDatabase,
-                                                sourceFile.c_str()
-                                            );
+        CXCompileCommands compileCommands =
+            clang_CompilationDatabase_getCompileCommands(compilationDatabase, sourceFile.c_str());
 
         if (!compileCommands) {
             std::cerr << "Failed to find compile command for " << sourceFile << std::endl;
@@ -578,9 +605,10 @@ struct Unfuckifier {
 
         CXCompileCommand compileCommand = clang_CompileCommands_getCommand(compileCommands, 0);
 
-        std::vector<char*> arguments(clang_CompileCommand_getNumArgs(compileCommand));
+        std::vector<char *> arguments(clang_CompileCommand_getNumArgs(compileCommand));
 
-        if (verbose) std::cout << "Compile commands:";
+        if (verbose)
+            std::cout << "Compile commands:";
         for (size_t i = 0; i < arguments.size(); i++) {
             std::string argument = getString(clang_CompileCommand_getArg(compileCommand, i));
 
@@ -594,10 +622,12 @@ struct Unfuckifier {
                 arguments[i] = strdup(argument.c_str());
             }
 
-            if (verbose) std::cout << " " << arguments[i] << std::flush;
+            if (verbose)
+                std::cout << " " << arguments[i] << std::flush;
         }
 
-        if (verbose) std::cout << std::endl;
+        if (verbose)
+            std::cout << std::endl;
 
         clang_CompileCommands_dispose(compileCommands);
 
@@ -605,35 +635,34 @@ struct Unfuckifier {
             clang_disposeIndex(index);
         }
 
-        index = clang_createIndex(
-                            0,
-                            1 // Print warnings and errors
-                        );
+        index = clang_createIndex(0,
+                                  1 // Print warnings and errors
+        );
 
         if (translationUnit) {
             clang_disposeTranslationUnit(translationUnit);
         }
 
         // Need to use the full argv thing for clang to pick up default paths
-        CXErrorCode parseError = clang_parseTranslationUnit2FullArgv(
-            index,
-            // source file, we can't pass this or it won't tell us that it failed (wtf)
-            // If we don't pass it, however, it doesn't return an error code
-            nullptr,
-            arguments.data(),
-            arguments.size(),
-            nullptr, // unsaved_files
-            0, // num_unsaved_files
-            CXTranslationUnit_None, // flags
-            &translationUnit
-        );
-        if (verbose) std::cout << "Finished parsing" << std::endl;
+        CXErrorCode parseError =
+            clang_parseTranslationUnit2FullArgv(index,
+                                                // source file, we can't pass this or it won't tell us that it failed
+                                                // (wtf) If we don't pass it, however, it doesn't return an error code
+                                                nullptr,
+                                                arguments.data(),
+                                                arguments.size(),
+                                                nullptr,                // unsaved_files
+                                                0,                      // num_unsaved_files
+                                                CXTranslationUnit_None, // flags
+                                                &translationUnit);
+        if (verbose)
+            std::cout << "Finished parsing" << std::endl;
 
         for (size_t i = 0; i < arguments.size(); i++) {
             free(arguments[i]);
         }
 
-        for (unsigned i=0; i<clang_getNumDiagnostics(translationUnit); i++) {
+        for (unsigned i = 0; i < clang_getNumDiagnostics(translationUnit); i++) {
             CXDiagnostic diagnostic = clang_getDiagnostic(translationUnit, i);
             const CXDiagnosticSeverity severity = clang_getDiagnosticSeverity(diagnostic);
             clang_disposeDiagnostic(diagnostic);
@@ -646,7 +675,7 @@ struct Unfuckifier {
 
         if (parseError != CXError_Success) {
             std::cerr << "Failed to parse " << sourceFile << ": ";
-            switch(parseError) {
+            switch (parseError) {
             case CXError_Failure:
                 std::cerr << "Generic unknown error (clang doesn't tell me more)" << std::endl;
                 break;
@@ -665,7 +694,6 @@ struct Unfuckifier {
             }
             return false;
         }
-
 
         if (!translationUnit) {
             std::cerr << "No parse error, but didn't get a translation unit for " << sourceFile << std::endl;
@@ -700,8 +728,9 @@ struct Unfuckifier {
         std::cout << " - pretty printed " << clang_getCursorPrettyPrinted(cursor, nullptr) << std::endl;
         std::cout << " - num t arguments " << clang_Cursor_getNumTemplateArguments(cursor) << std::endl;
         std::cout << " - num arguments " << clang_Cursor_getNumArguments(cursor) << std::endl;
-        for (int i=0; i< clang_Cursor_getNumArguments(cursor); i++) {
-            std::cout << " -> argument "  << clang_getTypeSpelling(clang_getCursorType(clang_Cursor_getArgument(cursor, i))) << std::endl;
+        for (int i = 0; i < clang_Cursor_getNumArguments(cursor); i++) {
+            std::cout << " -> argument "
+                      << clang_getTypeSpelling(clang_getCursorType(clang_Cursor_getArgument(cursor, i))) << std::endl;
         }
         CXSourceRange extent = clang_getCursorExtent(cursor);
 
@@ -719,7 +748,7 @@ struct Unfuckifier {
 
     static CXChildVisitResult dumpChild(CXCursor cursor, CXCursor parent, CXClientData client_data)
     {
-        Unfuckifier *that = reinterpret_cast<Unfuckifier*>(client_data);
+        Unfuckifier *that = reinterpret_cast<Unfuckifier *>(client_data);
 
         CXSourceLocation loc = clang_getCursorLocation(cursor);
         if (clang_Location_isInSystemHeader(loc)) {
@@ -735,15 +764,14 @@ struct Unfuckifier {
         dumpCursor(cursor);
         std::cout << "\nparent" << std::endl;
         dumpCursor(parent);
-        //std::cout << "\nparent parent" << std::endl;
-        //dumpCursor(clang_getCursorSemanticParent(parent));
-        //std::cout << "\nparent parent parent" << std::endl;
-        //dumpCursor(clang_getCursorSemanticParent(clang_getCursorSemanticParent(parent)));
+        // std::cout << "\nparent parent" << std::endl;
+        // dumpCursor(clang_getCursorSemanticParent(parent));
+        // std::cout << "\nparent parent parent" << std::endl;
+        // dumpCursor(clang_getCursorSemanticParent(clang_getCursorSemanticParent(parent)));
         std::cout << std::endl;
 
         return CXChildVisit_Recurse;
     }
-
 
     bool fixFile(const std::string &filePath, std::vector<Replacement> &replacements)
     {
@@ -751,11 +779,15 @@ struct Unfuckifier {
             return a.start < b.start;
         });
         // Meh, could check when we add them, but I'm lazy
-        replacements.erase(std::unique(replacements.begin(), replacements.end(), [](const Replacement &a, const Replacement &b) {
-            return a.start == b.start && a.end == b.end && a.string == b.string;
-        }), replacements.end());
+        replacements.erase(std::unique(replacements.begin(),
+                                       replacements.end(),
+                                       [](const Replacement &a, const Replacement &b) {
+                                           return a.start == b.start && a.end == b.end && a.string == b.string;
+                                       }),
+                           replacements.end());
         for (const Replacement &r : replacements) {
-            if (verbose) std::cout << "Replacement: " << r.start << " - " << r.end << " -> " << r.string << std::endl;
+            if (verbose)
+                std::cout << "Replacement: " << r.start << " - " << r.end << " -> " << r.string << std::endl;
         }
         if (replacements.empty()) {
             std::cerr << "Nothing to fix" << std::endl;
@@ -794,7 +826,8 @@ struct Unfuckifier {
                 std::cerr << "Invalid replacements" << std::endl;
                 std::cout << replacement.string << " length " << replacement.string.size() << std::endl;
                 std::cout << "replacing length " << (int(replacement.end) - int(replacement.start)) << std::endl;
-                std::cout << (int(replacement.start) - int(lastPos)) << " " << lastPos << " " << replacement.start << " " << replacement.end << std::endl;
+                std::cout << (int(replacement.start) - int(lastPos)) << " " << lastPos << " " << replacement.start
+                          << " " << replacement.end << std::endl;
                 failed = true;
                 break;
             }
@@ -802,19 +835,22 @@ struct Unfuckifier {
             buffer.resize(replacement.start - lastPos);
             ssize_t byteCount = fread(buffer.data(), 1, buffer.size(), file);
             if (byteCount != buffer.size()) {
-                std::cerr << "Failed to read all from " << filePath << " (only read " << byteCount << " bytes, expected " << buffer.size() << ")" << std::endl;
+                std::cerr << "Failed to read all from " << filePath << " (only read " << byteCount
+                          << " bytes, expected " << buffer.size() << ")" << std::endl;
                 failed = true;
                 break;
             }
             byteCount = fwrite(buffer.data(), 1, buffer.size(), outFile);
-            if  (byteCount != buffer.size()) {
-                std::cerr << "Failed to old content to " << outFilePath << " (only wrote " << byteCount << " bytes, expected " << buffer.size() << ")" << std::endl;
+            if (byteCount != buffer.size()) {
+                std::cerr << "Failed to old content to " << outFilePath << " (only wrote " << byteCount
+                          << " bytes, expected " << buffer.size() << ")" << std::endl;
                 failed = true;
                 break;
             }
             byteCount = fwrite(replacement.string.c_str(), 1, replacement.string.size(), outFile);
             if (byteCount != replacement.string.size()) {
-                std::cerr << "Failed to write replacement to " << outFilePath << " (only wrote " << byteCount << " bytes, expected " << buffer.size() << ")" << std::endl;
+                std::cerr << "Failed to write replacement to " << outFilePath << " (only wrote " << byteCount
+                          << " bytes, expected " << buffer.size() << ")" << std::endl;
                 failed = true;
                 break;
             }
@@ -882,20 +918,22 @@ struct Unfuckifier {
 
 static void printUsage(const std::string &executable)
 {
-    std::cerr << "Please pass a compile_commands.json and a source file, or --all to fix all files in project" << std::endl;
+    std::cerr << "Please pass a compile_commands.json and a source file, or --all to fix all files in project"
+              << std::endl;
     std::cerr << "To replace the existing files pass --replace" << std::endl;
-    std::cerr << "\t" << executable << " path/to/compile_commands.json [--verbose] [--dump-nodes] [--replace] [--skip-headers] [--stop-on-fail] [--all] [--reformat] [path/to/heretical.cpp]" << std::endl;
-    std::cerr << "For some autos you will need to use --reformat, because we need to regenerate parts of the code" << std::endl;
-    std::cerr << "To create a compilation database run cmake with '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON' on the project you're going to fix" << std::endl;
+    std::cerr << "\t" << executable
+              << " path/to/compile_commands.json [--verbose] [--dump-nodes] [--replace] [--skip-headers] "
+                 "[--stop-on-fail] [--all] [--reformat] [path/to/heretical.cpp]"
+              << std::endl;
+    std::cerr << "For some autos you will need to use --reformat, because we need to regenerate parts of the code"
+              << std::endl;
+    std::cerr << "To create a compilation database run cmake with '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON' on the project "
+                 "you're going to fix"
+              << std::endl;
 }
 
 int main(int argc, char *argv[])
 {
-    if (argc < 3) {
-        printUsage(argv[0]);
-        return 1;
-    }
-
     std::filesystem::path compileDbPath;
     std::filesystem::path sourceFile;
 
@@ -934,21 +972,37 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        std::filesystem::path path(arg);
-        if (!std::filesystem::exists(path)) {
+        if (arg == "--help" || arg == "-h") {
+            printUsage(argv[0]);
+            return 0;
+        }
+
+        if (arg == "--cc" || arg == "--compile-commands") {
+            if (argNum + 1 >= argc) {
+                fmt::println("--compile-commands requires an argument");
+                return 1;
+            }
+            compileDbPath = std::filesystem::path{argv[++argNum]};
             continue;
         }
-        if (path.filename() == "compile_commands.json") {
-            compileDbPath = path;
+
+        std::filesystem::path path(arg);
+        if (!std::filesystem::exists(path)) {
             continue;
         }
         sourceFile = path;
     }
 
     if (compileDbPath.empty() || !std::filesystem::exists(compileDbPath)) {
-        std::cerr << "Please pass path to a compile_commands.json file" << std::endl;
-        printUsage(argv[0]);
-        return 1;
+        if (std::filesystem::path p{cwd / "compile_commands.json"}; std::filesystem::exists(p)) {
+            compileDbPath = p;
+        }
+
+        if (std::filesystem::path p{cwd / "build" / "compile_commands.json"}; std::filesystem::exists(p)) {
+            compileDbPath = p;
+        }
+
+        log::info("Using compiled database at '{}'", compileDbPath.string());
     }
     compileDbPath.remove_filename();
     int posixSucks = chdir(compileDbPath.c_str());
@@ -960,10 +1014,10 @@ int main(int argc, char *argv[])
 
     if (all) {
         const std::vector<std::string> files = fixer.allAvailableFiles();
-        for (size_t i=0; i<files.size(); i++) {
+        for (size_t i = 0; i < files.size(); i++) {
             std::cout << i << "/" << files.size() << std::endl;
             if (!fixer.process(files[i])) {
-                std::cerr << "Failed to process " << files[i] << std::endl;
+                log::warning("Failed to process '{}'", files[i]);
                 if (stopOnFail) {
                     return 1;
                 }
@@ -979,11 +1033,9 @@ int main(int argc, char *argv[])
         sourceFile = std::filesystem::absolute(sourceFile);
 
         if (!fixer.process(sourceFile.string())) {
-            std::cerr << "Failed to process " << sourceFile << std::endl;
+            log::error("Failed to process '{}'", sourceFile.string());
             return 1;
         }
     }
-    std::cout << "Done!" << std::endl;
-
     return 0;
 }
