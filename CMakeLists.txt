@@ -19,7 +19,7 @@ project(${target} VERSION 1.0 LANGUAGES C CXX)
 
 find_package(Clang REQUIRED)
 include_directories(${CLANG_INCLUDE_DIRS})
-add_executable(${target} src/main.cpp)
+add_executable(${target} main.cpp)
 
 file(GLOB sources "src/*.cpp")
 file(GLOB includes "src/*.h")

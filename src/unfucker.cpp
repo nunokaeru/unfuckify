@@ -84,6 +84,24 @@ static void dumpNode(const CXCursor &cursor)
     std::cerr << " > Ends at " << clang_getFileName(fileEnd) << ":" << lineEnd << ":" << colEnd << std::endl;
 }
 
+static bool fileContainsAuto(const std::filesystem::path &path)
+{
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open " << path.string() << " to check for auto" << std::endl;
+        return false;
+    }
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.find("auto") != std::string::npos) {
+            file.close();
+            return true;
+        }
+    }
+    file.close();
+    return false;
+}
+
 struct Unfuckifier
 {
     struct Replacement
@@ -91,39 +109,6 @@ struct Unfuckifier
         unsigned start, end;
         std::string string;
     };
-
-    bool fileContainsAuto(const std::string &filename)
-    {
-        FILE *file = fopen(filename.c_str(), "r");
-        if (!file) {
-            std::cerr << "Failed to open " << filename << " to check for auto" << std::endl;
-            return false;
-        }
-
-        fseek(file, 0, SEEK_END);
-        const long fileSize = ftell(file);
-        fseek(file, 0, SEEK_SET);
-
-        if (fileSize <= 0) {
-            fclose(file);
-            std::cerr << "Failed to get size of " << filename << " to check for auto" << std::endl;
-            return false;
-        }
-
-        std::vector<char> buffer(fileSize);
-        if (fread(buffer.data(), buffer.size(), 1, file) != 1) {
-            std::cerr << "Short read from " << filename << " when checking for auto" << std::endl;
-            fclose(file);
-            return false;
-        }
-        fclose(file);
-
-        if (!memmem(buffer.data(), buffer.size(), "auto", strlen("auto"))) {
-            return false;
-        }
-
-        return true;
-    }
 
     std::string regenerateStupidShit(CXCursor cursor)
     {
@@ -915,127 +900,3 @@ struct Unfuckifier
     bool reformat = false;
     std::unordered_set<std::string> parsedFiles;
 };
-
-static void printUsage(const std::string &executable)
-{
-    std::cerr << "Please pass a compile_commands.json and a source file, or --all to fix all files in project"
-              << std::endl;
-    std::cerr << "To replace the existing files pass --replace" << std::endl;
-    std::cerr << "\t" << executable
-              << " path/to/compile_commands.json [--verbose] [--dump-nodes] [--replace] [--skip-headers] "
-                 "[--stop-on-fail] [--all] [--reformat] [path/to/heretical.cpp]"
-              << std::endl;
-    std::cerr << "For some autos you will need to use --reformat, because we need to regenerate parts of the code"
-              << std::endl;
-    std::cerr << "To create a compilation database run cmake with '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON' on the project "
-                 "you're going to fix"
-              << std::endl;
-}
-
-int main(int argc, char *argv[])
-{
-    std::filesystem::path compileDbPath;
-    std::filesystem::path sourceFile;
-
-    Unfuckifier fixer;
-    bool all = false;
-    bool stopOnFail = false;
-    for (int argNum = 1; argNum < argc; argNum++) {
-        const std::string arg = argv[argNum];
-
-        if (arg == "--all") {
-            all = true;
-            continue;
-        }
-        if (arg == "--replace") {
-            fixer.replaceFile = true;
-            continue;
-        }
-        if (arg == "--verbose") {
-            fixer.verbose = true;
-            continue;
-        }
-        if (arg == "--dump-nodes") {
-            fixer.dumpNodes = true;
-            continue;
-        }
-        if (arg == "--skip-headers") {
-            fixer.skipHeaders = true;
-            continue;
-        }
-        if (arg == "--reformat") {
-            fixer.reformat = true;
-            continue;
-        }
-        if (arg == "--stop-on-fail") {
-            stopOnFail = true;
-            continue;
-        }
-
-        if (arg == "--help" || arg == "-h") {
-            printUsage(argv[0]);
-            return 0;
-        }
-
-        if (arg == "--cc" || arg == "--compile-commands") {
-            if (argNum + 1 >= argc) {
-                fmt::println("--compile-commands requires an argument");
-                return 1;
-            }
-            compileDbPath = std::filesystem::path{argv[++argNum]};
-            continue;
-        }
-
-        std::filesystem::path path(arg);
-        if (!std::filesystem::exists(path)) {
-            continue;
-        }
-        sourceFile = path;
-    }
-
-    if (compileDbPath.empty() || !std::filesystem::exists(compileDbPath)) {
-        if (std::filesystem::path p{cwd / "compile_commands.json"}; std::filesystem::exists(p)) {
-            compileDbPath = p;
-        }
-
-        if (std::filesystem::path p{cwd / "build" / "compile_commands.json"}; std::filesystem::exists(p)) {
-            compileDbPath = p;
-        }
-
-        log::info("Using compiled database at '{}'", compileDbPath.string());
-    }
-    compileDbPath.remove_filename();
-    int posixSucks = chdir(compileDbPath.c_str());
-    if (posixSucks) {
-        std::cerr << "failed to chdir to " << compileDbPath << ", noone cares" << std::endl;
-    }
-
-    fixer.parseCompilationDatabase(compileDbPath.string());
-
-    if (all) {
-        const std::vector<std::string> files = fixer.allAvailableFiles();
-        for (size_t i = 0; i < files.size(); i++) {
-            std::cout << i << "/" << files.size() << std::endl;
-            if (!fixer.process(files[i])) {
-                log::warning("Failed to process '{}'", files[i]);
-                if (stopOnFail) {
-                    return 1;
-                }
-            }
-        }
-    } else {
-        if (sourceFile.empty() || !std::filesystem::exists(sourceFile)) {
-            std::cerr << "Please pass a path to a source file" << std::endl;
-            printUsage(argv[0]);
-            return 1;
-        }
-
-        sourceFile = std::filesystem::absolute(sourceFile);
-
-        if (!fixer.process(sourceFile.string())) {
-            log::error("Failed to process '{}'", sourceFile.string());
-            return 1;
-        }
-    }
-    return 0;
-}
