@@ -9,20 +9,23 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # TODO: Use Matrixes to test all the presets
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Update apt and install dependencies
         run: |
           sudo apt update
-          sudo apt install cmake ninja-build gcc g++
+          sudo apt install cmake ninja-build gcc g++ \
+            clang-20 llvm-20 libclang-20-dev clang-tools-20 \
+            libedit-dev zlib1g-dev libzstd-dev libcurl4-openssl-dev
 
       - name: Configure CMake
-        run: cmake --preset linux
+        run: cmake --preset linux-clang
 
       - name: Build
-        run: cmake --build --preset linux
+        run: cmake --build --preset linux-clang
 
       - name: Run tests
-        run: ctest --preset linux
+        run: ctest --preset linux-clang

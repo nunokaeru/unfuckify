@@ -116,9 +116,17 @@ Cases it fails on:
 
 ### pre-commit
 
-[pre-commit](https://pre-commit.com/#docker) will automatically mount the repository with `--volume $PWD:/src:rw,Z` and set the directory with `--workdir /src`
+- [pre-commit](https://pre-commit.com/#docker) will automatically mount the repository with `--volume $PWD:/src:rw,Z` and set the directory with `--workdir /src`
+- Test, in a different repository in a adjacent directory run `uvx pre-commit try-repo ..\unfuckify\ unfuckify --verbose --all-files`
 
-### Publish
+# Releases
 
-- Tag docker image (promote): `docker image tag nunokaeru/unfuckify:dev nunokaeru/unfuckify:latest`
+#### Github
+
+- Tag a certain commit `git tag v0.0.X`
+- Push the tags to remote `git push origin --tags`
+
+## To Docker
+
+- Tag docker image (promote to latest or current tag): `docker image tag nunokaeru/unfuckify:dev nunokaeru/unfuckify:latest`
 - Publish docker image: `docker push nunokaeru/unfuckify:latest`
