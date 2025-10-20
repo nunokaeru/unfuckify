@@ -1,5 +1,4 @@
 #include <string>
-#include <filesystem>
 
 #include "src/unfucker.cpp"
 
@@ -44,11 +43,11 @@ std::filesystem::path getCompileCommandsPath()
 int main(int argc, char *argv[])
 {
     std::filesystem::path compileDbPath;
-    std::filesystem::path sourceFile;
+    std::vector<std::string> sourceFiles;
 
     Unfuckifier fixer;
     bool all = false;
-    bool stopOnFail = false;
+    bool failFast = false;
     for (int argNum = 1; argNum < argc; argNum++) {
         const std::string arg = argv[argNum];
 
@@ -76,8 +75,8 @@ int main(int argc, char *argv[])
             fixer.reformat = true;
             continue;
         }
-        if (arg == "--stop-on-fail") {
-            stopOnFail = true;
+        if (arg == "--fail-fast") {
+            failFast = true;
             continue;
         }
 
@@ -95,7 +94,7 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        sourceFile = std::filesystem::path{arg};
+        sourceFiles.emplace_back(arg);
     }
 
     if (compileDbPath.empty() || !std::filesystem::exists(compileDbPath)) {
@@ -114,7 +113,7 @@ int main(int argc, char *argv[])
     }
 
     if (!fixer.parseCompilationDatabase(compileDbPath.string())) {
-        fmt::println("Failed to parse compilation database '{}'", compileDbPath.string());
+        log::error("Failed to parse compilation database '{}'", compileDbPath.string());
         return 1;
     }
 
@@ -122,26 +121,31 @@ int main(int argc, char *argv[])
         const std::vector<std::string> files = fixer.allAvailableFiles();
         const size_t totalFiles = files.size();
         for (size_t i = 0; i < totalFiles; i++) {
-            log::info("Processing file {}/{}", i + 1, totalFiles);
             if (!fixer.process(files[i])) {
-                if (stopOnFail) {
-                    fmt::println("Failed to process '{}", files[i]);
+                if (failFast) {
+                    log::critical("Failed to process '{}", files[i]);
                     return 1;
                 }
                 log::warning("Failed to process '{}'", files[i]);
             }
         }
     } else {
-        if (sourceFile.empty() || !std::filesystem::exists(sourceFile)) {
-            log::error("Source file '{}' does not exist", sourceFile.string());
-            return 1;
-        }
+        for (const std::string &file : sourceFiles) {
+            if (file.empty() || !std::filesystem::exists(file)) {
+                log::warning("Source file '{}' does not exist", file);
+                if (failFast) {
+                    return 1;
+                }
+                continue;
+            }
 
-        sourceFile = std::filesystem::absolute(sourceFile);
-
-        if (!fixer.process(sourceFile.string())) {
-            fmt::println("Failed to process '{}'", sourceFile.string());
-            return 1;
+            if (!fixer.process(std::filesystem::absolute(file))) {
+                log::critical("Failed to process '{}'", file);
+                if (failFast) {
+                    return 1;
+                }
+                continue;
+            }
         }
     }
     return 0;

@@ -98,7 +98,6 @@ Cases it fails on:
 
 - Handle structured binding (the auto there hides std::pairs, or sometimes QPairs).
 - Chop off the 'const' in std::functions.
-- Automatically find `compile_commands.json`
 - Integrate with cmake presets
 - Create `.pre-commit` workflow
 - Windows preset to work (what do I need to install)

@@ -66,6 +66,16 @@ inline void warning(const std::string str, Args &&...args)
 }
 
 template <typename... Args>
+inline void critical(const std::string str, Args &&...args)
+{
+    if (logLevel > Level::Critical) {
+        return;
+    }
+    const std::string wArgs = std::vformat(str, std::make_format_args(args...));
+    log::log("\x1b[31m[crit] }\x1b[0m\n", wArgs);
+}
+
+template <typename... Args>
 inline void error(const std::string str, Args &&...args)
 {
     if (logLevel > Level::Error) {
