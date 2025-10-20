@@ -5,7 +5,7 @@
 
 - id: unfuckify
   name: unfuckify
-  entry: unfuckify
+  entry: nunokaeru/unfuckify:latest
   description: Unfucks C++ repositories by removing 'auto'
   types_or: [c++]
-  language: docker
+  language: docker_image
