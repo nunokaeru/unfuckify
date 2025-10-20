@@ -1,0 +1,11 @@
+---
+# This file tells https://pre-commit.com/
+# which hooks are provided by this repo
+# for use by other git repos.
+
+- id: unfuckify
+  name: unfuckify
+  entry: unfuckify
+  description: Unfucks C++ repositories by removing 'auto'
+  types_or: [c++]
+  language: docker
