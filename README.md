@@ -105,3 +105,20 @@ Cases it fails on:
 - Mac preset to work (what do I need to install)
 - Should I install clang lib via FetchCmake?
 - Automate build process to not depend on installing linux packages
+
+## Docker
+
+- Create docker image: `docker build --tag nunokaeru/unfuckify:dev .`
+- Create docker container `docker run -d --tty --name unf nunokaeru/unfuckify:dev`
+  - [pre-commit](#pre-commit) will set `volume` and `workdir`, you need to set them yourself when creating the container manually
+- Execute a command in the docker container: `docker exec unf unfuckify --help`
+- Stop and Delete the docker container `docker stop unf && docker rm unf`
+
+### pre-commit
+
+[pre-commit](https://pre-commit.com/#docker) will automatically mount the repository with `--volume $PWD:/src:rw,Z` and set the directory with `--workdir /src`
+
+### Publish
+
+- Tag docker image (promote): `docker image tag nunokaeru/unfuckify:dev nunokaeru/unfuckify:latest`
+- Publish docker image: `docker push nunokaeru/unfuckify:latest`
