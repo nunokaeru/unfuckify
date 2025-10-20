@@ -8,9 +8,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
     # TODO: Use Matrixes to test all the presets
-
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 

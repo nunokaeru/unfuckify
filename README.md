@@ -104,20 +104,18 @@ Cases it fails on:
 - Windows preset to work (what do I need to install)
 - Mac preset to work (what do I need to install)
 - Should I install clang lib via FetchCmake?
-- Automate build process to not depend on installing linux packages
+- Automate build process to not depend on installing linux packages (possible?)
+- Clang devlib to be statically linked, so the binary can just be shipped standalone
 
 ## Docker
 
 - Create docker image: `docker build --tag nunokaeru/unfuckify:dev .`
 - Create docker container `docker run -d --tty --name unf nunokaeru/unfuckify:dev`
-  - [pre-commit](#pre-commit) will set `volume` and `workdir`, you need to set them yourself when creating the container manually
+  - [pre-commit](#pre-commit) will set `volume` and `workdir`, you need to set them yourself if you want to use the container manually
+  - [pre-commit](https://pre-commit.com/#docker) will automatically mount the repository with `--volume $PWD:/src:rw,Z` and set the directory with `--workdir /src`
+  - To test, change to a different repository in n adjacent directory and run `uvx pre-commit try-repo ..\unfuckify\ unfuckify-dev --verbose --all-files`. The `nunokaeru/unfuckify:dev` docker image must be built manually for testing purposes.
 - Execute a command in the docker container: `docker exec unf unfuckify --help`
 - Stop and Delete the docker container `docker stop unf && docker rm unf`
-
-### pre-commit
-
-- [pre-commit](https://pre-commit.com/#docker) will automatically mount the repository with `--volume $PWD:/src:rw,Z` and set the directory with `--workdir /src`
-- Test, in a different repository in a adjacent directory run `uvx pre-commit try-repo ..\unfuckify\ unfuckify --verbose --all-files`
 
 # Releases
 

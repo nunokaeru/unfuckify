@@ -16,6 +16,31 @@ static void printUsage(const std::string &executable)
                  "you're going to fix");
 }
 
+std::filesystem::path getCompileCommandsPath()
+{
+    const std::filesystem::path cwd = std::filesystem::current_path();
+
+    if (std::filesystem::path p{cwd / "compile_commands.json"}; std::filesystem::exists(p)) {
+        return p;
+    }
+
+    if (std::filesystem::path p{cwd / "build" / "compile_commands.json"}; std::filesystem::exists(p)) {
+        return p;
+    }
+
+    // First found in build subdirs
+    if (std::filesystem::path buildDir{cwd / "build"}; std::filesystem::exists(buildDir)) {
+        for (const auto &entry : std::filesystem::directory_iterator{buildDir}) {
+            if (entry.is_directory()) {
+                if (std::filesystem::path p{entry.path() / "compile_commands.json"}; std::filesystem::exists(p)) {
+                    return p;
+                }
+            }
+        }
+    }
+    return {};
+}
+
 int main(int argc, char *argv[])
 {
     std::filesystem::path compileDbPath;
@@ -74,17 +99,14 @@ int main(int argc, char *argv[])
     }
 
     if (compileDbPath.empty() || !std::filesystem::exists(compileDbPath)) {
-        const std::filesystem::path cwd = std::filesystem::current_path();
-        if (std::filesystem::path p{cwd / "compile_commands.json"}; std::filesystem::exists(p)) {
-            compileDbPath = p;
+        compileDbPath = getCompileCommandsPath();
+        if (compileDbPath.empty()) {
+            log::error("Could not find a valid compilation database");
+            return 1;
         }
-
-        if (std::filesystem::path p{cwd / "build" / "compile_commands.json"}; std::filesystem::exists(p)) {
-            compileDbPath = p;
-        }
-
-        log::info("Using compiled database at '{}'", compileDbPath.string());
     }
+    log::info("Using compiled database at '{}'", compileDbPath.string());
+
     compileDbPath.remove_filename();
     int posixSucks = chdir(compileDbPath.c_str());
     if (posixSucks) {

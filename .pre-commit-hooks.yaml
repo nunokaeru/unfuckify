@@ -5,7 +5,14 @@
 
 - id: unfuckify
   name: unfuckify
-  entry: nunokaeru/unfuckify:latest
+  entry: ghcr.io/nunokaeru/unfuckify:latest unfuckify
+  description: Unfucks C++ repositories by removing 'auto'
+  types_or: [c++]
+  language: docker_image
+
+- id: unfuckify-dev
+  name: unfuckify-dev
+  entry: nunokaeru/unfuckify:dev unfuckify
   description: Unfucks C++ repositories by removing 'auto'
   types_or: [c++]
   language: docker_image
