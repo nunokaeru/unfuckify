@@ -12,6 +12,15 @@
 
 #include "format.h"
 
+#include <sys/types.h> // for off_t, size_t, etc.
+#include <sys/stat.h>  // for struct stat, fstat()
+#include <fcntl.h>     // for open() and O_RDONLY
+#include <unistd.h>    // for close()
+#include <sys/mman.h>  // for mmap(), munmap(), PROT_READ, MAP_PRIVATE
+#include <string.h>    // for memmem()
+#include <iostream>    // for std::cerr, std::cout (optional)
+#include <string>      // for std::string
+
 extern "C" {
 #include <unistd.h>
 #include <clang-c/Index.h>
@@ -84,23 +93,120 @@ static void dumpNode(const CXCursor &cursor)
     std::cerr << " > Ends at " << clang_getFileName(fileEnd) << ":" << lineEnd << ":" << colEnd << std::endl;
 }
 
+#if 0
 static bool fileContainsAuto(const std::filesystem::path &path)
 {
-    std::ifstream file(path);
+    std::ifstream file(path, std::ios::in | std::ios::binary);
+    char buf[1024 * 10];
+    file.rdbuf()->pubsetbuf(buf, sizeof(buf));
     if (!file.is_open()) {
         std::cerr << "Failed to open " << path.string() << " to check for auto" << std::endl;
         return false;
     }
-    std::string line;
+    std::string_view pattern = "auto";
+
+    // Almost comparable performance wise to memmem version
+    if (std::search(std::istreambuf_iterator<char>(file),
+                std::istreambuf_iterator<char>(),
+                pattern.begin(), pattern.end()) != std::istreambuf_iterator<char>()) {
+                    return true;
+                }
+    // About 20%+ slower on average
+    /*std::string line;
     while (std::getline(file, line)) {
         if (line.find("auto") != std::string::npos) {
             file.close();
             return true;
         }
-    }
+    }*/
     file.close();
     return false;
 }
+#else
+static bool fileContainsAuto(const std::string &filename)
+{
+#if 0
+        // This one was super fast when I didnt check for errors, but with all the checks its slower
+        int fd = open(filename.c_str(), O_RDONLY);
+        if (fd == -1) {
+            return false;
+        }
+        struct stat sb;
+        if (fstat(fd, &sb) == -1) {
+            return false;
+        }
+        void* mapped = mmap(nullptr, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (memmem(mapped, sb.st_size, "auto", 4)){
+            munmap(mapped, sb.st_size);
+            close(fd);
+            return true;
+        }
+        munmap(mapped, sb.st_size);
+        close(fd);
+#else
+    // Undisputed king of fastness, not sure if there's some error checking missing
+    FILE *file = fopen(filename.c_str(), "r");
+    if (!file) {
+        std::cerr << "Failed to open " << filename << " to check for auto" << std::endl;
+        return false;
+    }
+
+    fseek(file, 0, SEEK_END);
+    const long fileSize = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    if (fileSize <= 0) {
+        fclose(file);
+        std::cerr << "Failed to get size of " << filename << " to check for auto" << std::endl;
+        return false;
+    }
+
+#if 1
+    std::vector<char> buffer(fileSize);
+    if (fread(buffer.data(), buffer.size(), 1, file) != 1) {
+        std::cerr << "Short read from " << filename << " when checking for auto" << std::endl;
+        fclose(file);
+        return false;
+    }
+    fclose(file);
+    if (!memmem(buffer.data(), buffer.size(), "auto", strlen("auto"))) {
+        return false;
+    }
+
+#else
+    // This one sucks donkey balls performance wise
+    // Especially after doing fseek'ing to make sure we catch all autos
+    int bufflen = 1024 * 10;
+    std::vector<char> buffer(bufflen);
+    size_t pos = 0;
+    while (bufflen + pos < fileSize) {
+        if (fread(buffer.data(), buffer.size(), 1, file) != 1) {
+            fclose(file);
+            return false;
+        }
+        if (memmem(buffer.data(), buffer.size(), "auto", 4)) {
+            fclose(file);
+            return true;
+        }
+        pos += bufflen - 4;
+        fseek(file, pos, SEEK_SET);
+    }
+    fseek(file, fileSize - pos - 4, SEEK_END);
+    if (fread(buffer.data(), buffer.size(), 1, file) != 1) {
+        fclose(file);
+        return false;
+    }
+    if (memmem(buffer.data(), buffer.size(), "auto", 4)) {
+        fclose(file);
+        return true;
+    }
+
+#endif
+
+#endif
+    return true;
+}
+#endif
 
 struct Unfuckifier
 {
@@ -301,10 +407,6 @@ struct Unfuckifier
             if (skipBuildDir) {
                 std::string buildDir = getString(clang_CompileCommand_getDirectory(compileCommand));
                 if (filename.find(buildDir) == 0) {
-                    if (verbose)
-                        std::cout << "Skipping generated " << filename << std::endl;
-                    else
-                        std::cout << "Skipping generated " << std::filesystem::path(filename).filename() << std::endl;
                     continue;
                 }
             }

@@ -128,13 +128,18 @@ int main(int argc, char *argv[])
     if (all) {
         const std::vector<std::string> files = fixer.allAvailableFiles();
         const size_t totalFiles = files.size();
-        for (size_t i = 0; i < totalFiles; i++) {
+        /*for (size_t i = 0; i < totalFiles; i++) {
             if (!fixer.process(files[i])) {
                 if (failFast) {
                     log::critical("Failed to process '{}", files[i]);
                     return 1;
                 }
                 log::warning("Failed to process '{}'", files[i]);
+            }
+        }*/
+        for (size_t i = 0; i < 100; i++) {
+            for (size_t i = 0; i < totalFiles; i++) {
+                fileContainsAuto(std::filesystem::path(files[i]));
             }
         }
     } else {
