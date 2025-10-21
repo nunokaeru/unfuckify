@@ -80,17 +80,25 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        if (arg == "--help" || arg == "-h") {
+        if (arg == "-h" || arg == "--help") {
             printUsage(argv[0]);
             return 0;
         }
 
-        if (arg == "--cc" || arg == "--compile-commands") {
+        if (arg == "-cc" || arg == "--compile-commands") {
             if (argNum + 1 >= argc) {
                 fmt::println("--compile-commands requires an argument");
                 return 1;
             }
             compileDbPath = std::filesystem::path{argv[++argNum]};
+            continue;
+        }
+        if (arg == "-b" || arg == "--build-directory") {
+            if (argNum + 1 >= argc) {
+                fmt::println("--build-directory requires an argument");
+                return 1;
+            }
+            compileDbPath = std::filesystem::path{argv[++argNum]} / "compile_commands.json";
             continue;
         }
 

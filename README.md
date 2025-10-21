@@ -3,32 +3,33 @@
 Fixes readability of C++ source code by resolving `auto` and replacing it with
 the real type.
 
-## Why
+## Motivation
 
 `auto` is the worst abomination to have happened to C++.
 
 Source code is written once and read many times, so spend the two seconds it
 takes to write out the type of the variable. Then, when people just want to read
 the code they'll have the type right fucking there. Extra points for thinking about people
-that aren't using an LSP or an IDE.
+that aren't using an LSP or an IDE, like reviewers on Github / Gitlab / Codeberg.
 
-## Requirements
+## Build Requirements
+
+Only Linux is supported for development currently. You should be able to use both Windows and MacOS
+but the process is not automated and might therefore break unexpectedly.
 
 - [Cmake](https://cmake.org/download/) higher than `v3.28`;
 - [Ninja](https://ninja-build.org/);
 - [LLVM](https://llvm.org/);
 - [Clang](https://clang.llvm.org/);
 
-### Ubuntu 24.04:
-
 ```
 sudo apt update
-sudo apt install cmake ninja-build gcc g++ clang-20 llvm-20 libclang-20-dev clang-tools-20 libedit-dev zlib1g-dev libzstd-dev libcurl4-openssl-dev
+sudo apt install cmake ninja-build clang-20 llvm-20 libclang-20-dev clang-tools-20
 ```
 
-## Building and running the project
+## Building and running
 
-Three presets are provided, one for windows `windows-clang` (doesn't work) and two for `linux` and `linux-clang`.
+The recommended way to is to use the `linux-clang` cmake preset. All other methods might not work without fiddling.
 
 - List the presets available with `cmake --list-presets`;
 - Run the project configure step with `cmake --preset <preset>`;
@@ -38,15 +39,16 @@ Three presets are provided, one for windows `windows-clang` (doesn't work) and t
 
 ## Usage
 
-To use just run pass `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` to cmake when
-building the project you want to fix, and then run `unfuckify path/to/buildfolder/compile_commands.json` and either the name of a file or
-`--all` to fix all files in the project.
+1. You must first generate the `compile_commands.json` file in your C++ repository. This is generally done during your build step
 
-By default it will write the fixed source to `foo.cpp-fixed`, pass `--replace`
-to replace the existing file.
+- In a CMake project compile with `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`, this will usually create the file under your [build](https://cmake.org/cmake/help/latest/manual/cmake.1.html) directory.
 
-This uses libclang to parse and resolve the types, so if your project builds
-with clang this should work as well.
+2. Either fix multiple files `unfuckify <file1> <file2> <file3>` or all files `unfuckify --all`.
+
+- `unfuckify` will use the first `compile_commands.json` it finds. Order is: current working directory, build folder then any subdirectory of build folder
+- You can pass in the file with `--compile-commands / -cc` or with `-b / --build-directory`
+
+3. By default it will not overwrite the existing file, it will write the new source to `foo.cpp-fixed`, pass `--replace` to replace the existing file (TODO: default should not write to disk, instead just log the issue like clang).
 
 ## Example
 
@@ -55,26 +57,7 @@ In a random CMake based project:
 - `mkdir build && cd build`
 - `CC="clang" CXX="clang++" cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -GNinja ..`
 - `ninja` (to make sure generated files are available)
-- `unfuckify --replace compile_commands.json ../src/main.cpp`
-
-## Why the offensive name
-
-Like all great projects this was written in a moment of frustration and anger.
-
-Official upstream suggestions for alternative names, if you want to package
-this for a distro that doesn't allow swearing:
-
-- Antonyms of autonomy (courtesy of wordhippo.com):
-  - Heteronomy
-  - Bondage
-  - Subservience
-  - Subjugation
-  - Other BDSM terms, apparently
-- Auto Annihilator
-- Auto-b-Gone
-- auto-was-a-mistake-please-help
-- N1984, The Name Should Have Given It Away
-- no-n1984
+- `unfuckify --replace ../src/main.cpp`
 
 ## Known issues
 
@@ -99,7 +82,6 @@ Cases it fails on:
 - Handle structured binding (the auto there hides std::pairs, or sometimes QPairs).
 - Chop off the 'const' in std::functions.
 - Integrate with cmake presets
-- Create `.pre-commit` workflow
 - Windows preset to work (what do I need to install)
 - Mac preset to work (what do I need to install)
 - Should I install clang lib via FetchCmake?
@@ -118,10 +100,10 @@ Cases it fails on:
 
 # Releases
 
-#### Github
+## Github
 
 - Tag a certain commit `git tag v0.0.X`
-- Push the tags to remote `git push origin --tags`
+- Push the tags to remote `git push origin v0.0.X`
 
 ## To Docker
 
