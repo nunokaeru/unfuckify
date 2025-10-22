@@ -19,12 +19,12 @@ std::filesystem::path getCompileCommandsPath()
 {
     const std::filesystem::path cwd = std::filesystem::current_path();
 
-    if (std::filesystem::path p{cwd / "compile_commands.json"}; std::filesystem::exists(p)) {
-        return p;
+    if (std::filesystem::exists(cwd / "compile_commands.json")) {
+        return cwd;
     }
 
-    if (std::filesystem::path p{cwd / "build" / "compile_commands.json"}; std::filesystem::exists(p)) {
-        return p;
+    if (std::filesystem::exists(cwd / "build" / "compile_commands.json")) {
+        return cwd / "build";
     }
 
     // First found in build subdirs
@@ -32,7 +32,7 @@ std::filesystem::path getCompileCommandsPath()
         for (const auto &entry : std::filesystem::directory_iterator{buildDir}) {
             if (entry.is_directory()) {
                 if (std::filesystem::path p{entry.path() / "compile_commands.json"}; std::filesystem::exists(p)) {
-                    return p;
+                    return entry.path();
                 }
             }
         }
@@ -42,7 +42,7 @@ std::filesystem::path getCompileCommandsPath()
 
 int main(int argc, char *argv[])
 {
-    std::filesystem::path compileDbPath;
+    std::filesystem::path compileDbDir;
     std::vector<std::string> sourceFiles;
 
     Unfuckifier fixer;
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
                 fmt::println("--compile-commands requires an argument");
                 return 1;
             }
-            compileDbPath = std::filesystem::path{argv[++argNum]};
+            compileDbDir = std::filesystem::path{argv[++argNum]}.remove_filename();
             continue;
         }
         if (arg == "-b" || arg == "--build-directory") {
@@ -98,30 +98,24 @@ int main(int argc, char *argv[])
                 fmt::println("--build-directory requires an argument");
                 return 1;
             }
-            compileDbPath = std::filesystem::path{argv[++argNum]} / "compile_commands.json";
+            compileDbDir = std::filesystem::path{argv[++argNum]};
             continue;
         }
 
         sourceFiles.emplace_back(arg);
     }
 
-    if (compileDbPath.empty() || !std::filesystem::exists(compileDbPath)) {
-        compileDbPath = getCompileCommandsPath();
-        if (compileDbPath.empty()) {
+    if (compileDbDir.empty() || !std::filesystem::exists(compileDbDir)) {
+        compileDbDir = getCompileCommandsPath();
+        if (compileDbDir.empty()) {
             log::error("Could not find a valid compilation database");
             return 1;
         }
     }
-    log::info("Using compiled database at '{}'", compileDbPath.string());
+    log::info("Using compiled database at '{}'", compileDbDir.string());
 
-    compileDbPath.remove_filename();
-    int posixSucks = chdir(compileDbPath.c_str());
-    if (posixSucks) {
-        std::cerr << "failed to chdir to " << compileDbPath << ", noone cares" << std::endl;
-    }
-
-    if (!fixer.parseCompilationDatabase(compileDbPath.string())) {
-        log::error("Failed to parse compilation database '{}'", compileDbPath.string());
+    if (!fixer.parseCompilationDatabase(compileDbDir.string())) {
+        log::error("Failed to parse compilation database '{}'", compileDbDir.string());
         return 1;
     }
 
@@ -138,8 +132,11 @@ int main(int argc, char *argv[])
             }
         }
     } else {
+        const std::filesystem::path cwd = std::filesystem::current_path();
         for (const std::string &file : sourceFiles) {
-            if (file.empty() || !std::filesystem::exists(file)) {
+            std::filesystem::path filepath{cwd / file};
+
+            if (file.empty() || !std::filesystem::exists(filepath)) {
                 log::warning("Source file '{}' does not exist", file);
                 if (failFast) {
                     return 1;
@@ -147,7 +144,7 @@ int main(int argc, char *argv[])
                 continue;
             }
 
-            if (!fixer.process(std::filesystem::absolute(file))) {
+            if (!fixer.process(std::filesystem::absolute(filepath))) {
                 log::critical("Failed to process '{}'", file);
                 if (failFast) {
                     return 1;
